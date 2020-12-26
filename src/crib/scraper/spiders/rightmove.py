@@ -8,6 +8,7 @@ import dateutil.parser
 import scrapy  # type: ignore
 from scrapy.http.response import Response  # type: ignore
 
+from build.lib.crib.scraper.spiders.rightmove import _load_page_model
 from crib import injection
 from crib.domain import Property
 from crib.scraper import base
@@ -47,44 +48,42 @@ class RightmoveSpider(base.WithInjection, scrapy.Spider):
             yield response.follow(data["propertyUrl"], callback=callback)
 
     def parse_property(self, data, existing, response: Response) -> PR:
-        data["propertyImages"] = self._get_property_images(response)
-        data["floorplanImages"] = self._get_floorplan_images(response)
-        data["lettingInformation"] = self._get_letting_information(response)
-        data["keyFeatures"] = self._get_key_features(response)
-        data["summary"] = self._get_summary(response)
+        property = _load_page_model(response)["propertyData"]
+        data["propertyImages"] = self._get_property_images(property)
+        data["floorplanImages"] = self._get_floorplan_images(property)
+        data["lettingInformation"] = self._get_letting_information(property)
+        data["keyFeatures"] = self._get_key_features(property)
+        data["summary"] = self._get_summary(property)
         prop = to_prop(data, existing)
         yield PropertyItem({"prop": prop, "existing": existing})
 
-    def _get_key_features(self, response: Response) -> List[str]:
-        xpath = "//div[contains(@class,'key-features')]/ul/li/text()"
-        return response.xpath(xpath).extract()
+    def _get_key_features(self, property: Dict) -> List[str]:
+        return property["keyFeatures"]
 
-    def _get_letting_information(self, response: Response) -> Dict[str, str]:
-        xpath = "//div[@id='lettingInformation']//td/text()"
-        flat_info = response.xpath(xpath).extract()
-        tuples = zip(flat_info[::2], flat_info[1::2])
-        table_info = dict((k.rstrip(": "), v) for k, v in tuples)
-        return table_info
+    def _get_letting_information(self, property: Dict) -> Dict[str, str]:
+        return property["lettings"]
 
-    def _get_summary(self, response: Response) -> str:
-        xpath = "//div[@id='description']//div[@class='sect ']/node()"
-        return "\n".join(response.xpath(xpath).extract()).strip()
+    def _get_summary(self, property: Dict) -> str:
+        return property["text"]["description"]
 
-    def _get_property_images(self, response: Response) -> List[str]:
-        xpath = "//div[@class='gallery gallery-grid']/ul/*/a/img/@src"
-        return response.xpath(xpath).extract()
+    def _get_property_images(self, property: Dict) -> List[str]:
+        return [img["url"] for img in property["images"]]
 
-    def _get_floorplan_images(self, response: Response) -> List[str]:
-        xpath = "//div[contains(@class,'floorplancontent')]//img/@src"
-        return list(set(response.xpath(xpath).extract()))
+    def _get_floorplan_images(self, property: Dict) -> List[str]:
+        return [img["url"] for img in property["floorplans"]]
 
 
 def _load_model(response: Response) -> Dict:
-    script = response.xpath("/html/body/script[1]/text()").extract_first()
+    script = response.xpath("/html/body/script[2]/text()").extract_first()
     jsmodel = script[len("window.jsonModel = ") :]
     model = json.loads(jsmodel)
     return model
 
+def _load_page_model(response: Response) -> Dict:
+    script = response.xpath("/html/body/script[1]/text()").extract_first()
+    jsmodel = script[len("\n    window.PAGE_MODEL = ") :]
+    model = json.loads(jsmodel)
+    return model
 
 def _get_pages(response: Response, model: Dict) -> Iterable[str]:
     url = response.url

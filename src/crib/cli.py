@@ -133,9 +133,9 @@ def run(ctx):
 @click.password_option("--password")
 @click.pass_context
 def add_user(ctx: click.Context, username: str, password: str) -> None:
-    container = ctx.obj
+    app = ctx.ensure_object(ScriptInfo).load_app()
     try:
-        container.auth_service.register(username, password)
+        app.auth_service.register(username, password)
     except exceptions.DuplicateUser:
         raise click.UsageError(f"User {username} already exists")
     except ValueError as err:
@@ -149,4 +149,5 @@ def add_user(ctx: click.Context, username: str, password: str) -> None:
 @click.pass_context
 def fetch_to_work(ctx: click.Context, mode) -> None:
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(ctx.obj.directions_service.fetch_map_to_work(mode))
+    app = ctx.ensure_object(ScriptInfo).load_app()
+    loop.run_until_complete(app.directions_service.fetch_map_to_work(mode))
