@@ -1,14 +1,17 @@
 import datetime
 import functools
+import io
 import json
+import re
 from typing import Any, Dict, Iterable, List, Union
 from urllib import parse as urlparse
 
 import dateutil.parser
 import scrapy  # type: ignore
+from PIL import Image
 from scrapy.http.response import Response  # type: ignore
+from pytesseract import image_to_string
 
-from build.lib.crib.scraper.spiders.rightmove import _load_page_model
 from crib import injection
 from crib.domain import Property
 from crib.scraper import base
@@ -50,12 +53,29 @@ class RightmoveSpider(base.WithInjection, scrapy.Spider):
     def parse_property(self, data, existing, response: Response) -> PR:
         property = _load_page_model(response)["propertyData"]
         data["propertyImages"] = self._get_property_images(property)
-        data["floorplanImages"] = self._get_floorplan_images(property)
+        floorplanImages = self._get_floorplan_images(property)
+        data["floorplanImages"] = floorplanImages
         data["lettingInformation"] = self._get_letting_information(property)
         data["keyFeatures"] = self._get_key_features(property)
         data["summary"] = self._get_summary(property)
+        if len(floorplanImages) > 0:
+            callback = functools.partial(self.get_floor_area, data, existing)
+            yield response.follow(floorplanImages[0], callback=callback)
+        else:
+            prop = to_prop(data, existing)
+            yield PropertyItem({"prop": prop, "existing": existing})
+
+    def get_floor_area(self, data, existing, response: Response):
+        # download image and use tesseract to
+        image_data = response.body
+        image = Image.open(io.BytesIO(image_data))
+        floorplan_text = image_to_string(image)
+        data["floorArea"] = extract_floor_area(floorplan_text)
         prop = to_prop(data, existing)
         yield PropertyItem({"prop": prop, "existing": existing})
+
+    def get_area(self, text):
+        pass
 
     def _get_key_features(self, property: Dict) -> List[str]:
         return property["keyFeatures"]
@@ -71,6 +91,13 @@ class RightmoveSpider(base.WithInjection, scrapy.Spider):
 
     def _get_floorplan_images(self, property: Dict) -> List[str]:
         return [img["url"] for img in property["floorplans"]]
+
+
+def extract_floor_area(text) -> float:
+    results = [float(sqm) for sqm in re.findall("(?i)([\d.]+)\s?(?:sq\.?\s?m\.?|m\?)", text)]
+    if len(results) > 0:
+        return max(results)
+    return 0.0
 
 
 def _load_model(response: Response) -> Dict:
