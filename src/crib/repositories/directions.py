@@ -86,7 +86,7 @@ class MongoDirectionsRepo(DirectionsRepo, mongo.MongoRepo):
         for d in self._directions.find():
             yield {
                 "location": [d["start_location"]["lat"], d["start_location"]["lng"]],
-                "durationValue": d["duration"]["value"],
+                "durationValue": int(d["duration"]["value"]), # duration in seconds
                 "duration": d["duration"]["text"],
             }
 
@@ -100,6 +100,8 @@ class MongoDirectionsRepo(DirectionsRepo, mongo.MongoRepo):
         if not result:
             return None
         data = result["area"]
+        if not data:
+            return None
         area = shape(data)
         return area
 

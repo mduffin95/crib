@@ -137,6 +137,10 @@ class DirectionsService(plugins.Plugin):
             if d["durationValue"] <= max_duration
         ]
         area = map_analysis.get_area(directions, alpha, hullbuffer)
+
+        if area.is_empty:
+            return None
+
         self.directions_repository.insert_to_work_area(
             max_duration=max_duration, area=area
         )
