@@ -28,6 +28,7 @@ class Property(Model):
     price: Price = attr.ib()
     propertyImages: Tuple[str, ...] = attr.ib()
     floorplanImages: Tuple[str, ...] = attr.ib()
+    floorArea: float = attr.ib()
     propertySubType: str = attr.ib()
     propertyTypeFullDescription: str = attr.ib()
     propertyUrl: str = attr.ib()

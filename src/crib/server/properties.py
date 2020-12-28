@@ -95,6 +95,23 @@ async def ban():
 
     return jsonify({"msg": "success"}), 200
 
+@bp.route("/area", methods=["PUT"])
+@jwt_required
+async def area():
+    json = await request.json
+    prop_id = json.get("prop_id")
+    area = json.get("area")
+    if prop_id is None:
+        return jsonify({"msg": "prop_id is missing"}), 400
+    if area is None:
+        return jsonify({"msg": "area is missing"}), 400
+
+    try:
+        current_app.property_service.set_area(prop_id, area)
+    except exceptions.EntityNotFound as err:
+        return jsonify({"msg": str(err)}), 400
+
+    return jsonify({"msg": "success"}), 200
 
 def _geo_json_to_shape(data):
     if data and data["features"]:

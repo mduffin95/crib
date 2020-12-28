@@ -48,6 +48,13 @@ class PropertyService(plugins.Plugin):
             prop = prop.replace(banned=val)
             self.property_repository.update(prop)
 
+    def set_area(self, prop_id: str, val: bool):
+        prop = self.property_repository.get(prop_id)
+        if prop.floorArea != val:
+            prop = prop.replace(floorArea=val)
+            self.property_repository.update(prop)
+
+
     def clear_properties(self, banned=False, favorites=False):
         self.property_repository.clear(banned=banned, favorites=favorites)
 

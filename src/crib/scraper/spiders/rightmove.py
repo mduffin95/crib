@@ -62,6 +62,7 @@ class RightmoveSpider(base.WithInjection, scrapy.Spider):
             callback = functools.partial(self.get_floor_area, data, existing)
             yield response.follow(floorplanImages[0], callback=callback)
         else:
+            data["floorArea"] = 0.0
             prop = to_prop(data, existing)
             yield PropertyItem({"prop": prop, "existing": existing})
 
@@ -143,6 +144,7 @@ def to_prop(data, existing=None):
         "feesApplyText",
         "firstVisibleDate",
         "floorplanImages",
+        "floorArea",
         "id",
         "keyFeatures",
         "lettingInformation",
